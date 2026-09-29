@@ -77,7 +77,16 @@ async function run() {
       res.clearCookie("__Secure-better-auth.session_token", { path: "/" });
       res.json({ success: true, message: "Logged out successfully and cookies cleared" });
     };
-
+      
+    app.get("/api/default-rooms", async (req, res) => {
+      try {
+        const defaultRooms = await defaultRoomsCollection.find().toArray();
+        res.json(defaultRooms);
+      } catch (error) {
+        console.error("Fetch default rooms error:", error);
+        res.status(500).json({ message: "Failed to fetch default rooms" });
+      }
+    });
     
 
     app.get("/", (req, res) => {
