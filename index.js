@@ -87,6 +87,24 @@ async function run() {
         res.status(500).json({ message: "Failed to fetch default rooms" });
       }
     });
+     app.get("/api/rooms/:id", async (req, res) => {
+          try {
+            const { id } = req.params;
+            if (!ObjectId.isValid(id)) {
+              return res.status(400).json({ message: "Invalid Room ID" });
+            }
+            let room = await roomsCollection.findOne({ _id: new ObjectId(id) });
+            if (!room) {
+              room = await defaultRoomsCollection.findOne({ _id: new ObjectId(id) });
+            }
+            if (!room) {
+              return res.status(404).json({ message: "Room not found" });
+            }
+            res.json(room);
+          } catch (error) {
+            res.status(500).json({ message: "Failed to fetch room details" });
+          }
+        });
     
 
     app.get("/", (req, res) => {
