@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-const cookieParser = require("cookie-parser");
+const cors = require("cors");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -9,6 +9,19 @@ const url = process.env.MONGODB_URL;
 
 // Middleware
 app.use();
+app.use(express.json());
+app.use(cookieParser());
+
+app.use(
+  cors({
+    origin: [
+      process.env.CLIENT_URL || "http://localhost:3000",
+      "http://localhost:3000",
+      "http://localhost:3001",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(cookieParser());
 
@@ -27,6 +40,7 @@ async function run() {
     console.log("Connected successfully to MongoDB!");
 
     const db = client.db("studynook_db");
+    const defaultRoomsCollection = db.collection("default_rooms");
 
     
 
