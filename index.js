@@ -42,6 +42,42 @@ async function run() {
     const db = client.db("studynook_db");
     const defaultRoomsCollection = db.collection("default_rooms");
 
+
+    app.get("/api/auth/me", authMiddleware, async (req, res) => {
+      try {
+        const payload = {
+          id: req.user.id,
+          name: req.user.name,
+          email: req.user.email,
+          photoURL: req.user.photoURL,
+        };
+        const token = await issueJwtAndSetCookie(res, payload);
+
+        res.json({
+          token,
+          user: {
+            id: req.user.id,
+            name: req.user.name,
+            email: req.user.email,
+            photoURL: req.user.photoURL,
+            image: req.user.photoURL,
+          },
+        });
+      } catch (error) {
+        console.error("Fetch profile error:", error);
+        res.status(500).json({ message: "Failed to fetch user profile" });
+      }
+    });
+
+    // Logout: Clear JWT and Session cookies
+    const handleLogout = (req, res) => {
+      res.clearCookie("token", { path: "/" });
+      res.clearCookie("jwt_token", { path: "/" });
+      res.clearCookie("better-auth.session_token", { path: "/" });
+      res.clearCookie("__Secure-better-auth.session_token", { path: "/" });
+      res.json({ success: true, message: "Logged out successfully and cookies cleared" });
+    };
+
     
 
     app.get("/", (req, res) => {
