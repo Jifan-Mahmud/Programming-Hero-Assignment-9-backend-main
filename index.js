@@ -131,19 +131,31 @@ async function run() {
     const bookingsCollection = db.collection("bookings");
     const defaultRoomsCollection = db.collection("default_rooms");
 
-    // Automatically load from MongoDB Atlas 'default_rooms' collection if 'rooms' is ever empty
-    const roomCount = await roomsCollection.countDocuments();
-    if (roomCount === 0) {
-      const defaultDocs = await defaultRoomsCollection.find().toArray();
-      if (defaultDocs.length > 0) {
-        const cleanDocs = defaultDocs.map(({ _id, ...rest }) => ({
-          ...rest,
-          createdAt: rest.createdAt || new Date(),
-        }));
-        await roomsCollection.insertMany(cleanDocs);
-        console.log("Successfully populated rooms from MongoDB Atlas default_rooms collection!");
+    // Automatically sync any rooms from MongoDB Atlas 'default_rooms' collection into 'rooms'
+    const syncDefaultRooms = async () => {
+      try {
+        const defaultDocs = await defaultRoomsCollection.find().toArray();
+        if (defaultDocs.length > 0) {
+          for (const doc of defaultDocs) {
+            const exists = await roomsCollection.findOne({ name: doc.name });
+            if (!exists) {
+              const { _id, ...rest } = doc;
+              await roomsCollection.insertOne({
+                ...rest,
+                createdAt: rest.createdAt || new Date(),
+                bookingCount: rest.bookingCount || 0,
+              });
+              console.log(`Synced new room from default_rooms: ${doc.name}`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error syncing default_rooms:", err);
       }
-    }
+    };
+
+    // Run sync on startup
+    await syncDefaultRooms();
 
     // Helper to issue JWT token (via jose-cjs) and set cookie visible in DevTools -> Application -> Cookies
     const issueJwtAndSetCookie = async (res, payload) => {
@@ -235,6 +247,7 @@ async function run() {
     // Get all rooms (with Search & Filter & Limit & Sort)
     app.get("/api/rooms", async (req, res) => {
       try {
+        await syncDefaultRooms();
         const { search, amenities, floor, minRate, maxRate, sort, limit } = req.query;
 
         const query = {};
