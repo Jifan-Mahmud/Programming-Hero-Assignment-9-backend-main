@@ -6,7 +6,25 @@ const cors = require("cors");
 const app = express();
 const port = process.env.PORT || 5000;
 const url = process.env.MONGODB_URL;
+const JWT_SECRET = process.env.JWT_SECRET || "studynook_jwt_secret_key_2026_secure";
 
+
+const jwtSecretKey = new TextEncoder().encode(JWT_SECRET);
+
+// Helper to sign JWT using jose-cjs
+const signJwtToken = async (payload) => {
+  return await new SignJWT(payload)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("7d")
+    .sign(jwtSecretKey);
+};
+
+// Helper to verify JWT using jose-cjs
+const verifyJwtToken = async (token) => {
+  const { payload } = await jwtVerify(token, jwtSecretKey);
+  return payload;
+};
 // Middleware
 app.use();
 app.use(express.json());
@@ -307,7 +325,7 @@ async function run() {
             res.status(500).json({ message: "Failed to create booking" });
           }
         });
-        
+
     app.listen(port, () => {
       console.log(`StudyNook backend server listening on port ${port}`);
     });
