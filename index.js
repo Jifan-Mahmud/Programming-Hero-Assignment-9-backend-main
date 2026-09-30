@@ -123,7 +123,7 @@ const authMiddleware = async (req, res, next) => {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     console.log("Connected successfully to MongoDB!");
 
     const db = client.db("studynook_db");
