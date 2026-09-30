@@ -219,7 +219,95 @@ async function run() {
     app.get("/", (req, res) => {
       res.send("StudyNook Server API is running smoothly!");
     });
-
+    
+    app.post("/api/bookings", authMiddleware, async (req, res) => {
+          try {
+            const { roomId, date, startTime, endTime, specialNote } = req.body;
+    
+            if (!roomId || !date || !startTime || !endTime) {
+              return res.status(400).json({ message: "Room, date, start time, and end time are required." });
+            }
+    
+            if (!ObjectId.isValid(roomId)) {
+              return res.status(400).json({ message: "Invalid Room ID" });
+            }
+    
+            let room = await roomsCollection.findOne({ _id: new ObjectId(roomId) });
+            if (!room) {
+              room = await defaultRoomsCollection.findOne({ _id: new ObjectId(roomId) });
+            }
+            if (!room) {
+              return res.status(404).json({ message: "Room not found" });
+            }
+    
+            // Validate time
+            const startHour = parseInt(startTime.split(":")[0]);
+            const endHour = parseInt(endTime.split(":")[0]);
+    
+            if (isNaN(startHour) || isNaN(endHour) || endHour <= startHour) {
+              return res.status(400).json({ message: "End time must be after start time." });
+            }
+    
+            // Double-booking Conflict Check:
+            // Find existing confirmed bookings for this room on the given date
+            const existingBookings = await bookingsCollection
+              .find({
+                roomId: new ObjectId(roomId),
+                date: date,
+                status: "confirmed",
+              })
+              .toArray();
+    
+            // Conflict condition: newStart < existEnd AND newEnd > existStart
+            const hasConflict = existingBookings.some((b) => {
+              const bStart = parseInt(b.startTime.split(":")[0]);
+              const bEnd = parseInt(b.endTime.split(":")[0]);
+              return startHour < bEnd && endHour > bStart;
+            });
+    
+            if (hasConflict) {
+              return res.status(409).json({
+                message: "Conflict: This room is already booked for the selected time slot.",
+              });
+            }
+    
+            const totalHours = endHour - startHour;
+            const totalCost = totalHours * room.hourlyRate;
+    
+            const newBooking = {
+              roomId: new ObjectId(roomId),
+              userId: req.user.id,
+              userName: req.user.name,
+              userEmail: req.user.email,
+              date,
+              startTime,
+              endTime,
+              totalCost,
+              specialNote: specialNote || "",
+              status: "confirmed",
+              createdAt: new Date(),
+            };
+    
+            const result = await bookingsCollection.insertOne(newBooking);
+            const bookingId = result.insertedId;
+    
+            // Increment room booking count
+            await roomsCollection.updateOne(
+              { _id: new ObjectId(roomId) },
+              { $inc: { bookingCount: 1 } }
+            );
+    
+            res.status(201).json({
+              success: true,
+              message: "Room booked successfully!",
+              booking: { _id: bookingId, ...newBooking },
+            });
+          } catch (error) {
+            console.error("Booking Error:", error);
+            res.status(500).json({ message: "Failed to create booking" });
+          }
+        });
+        
     app.listen(port, () => {
       console.log(`StudyNook backend server listening on port ${port}`);
     });
