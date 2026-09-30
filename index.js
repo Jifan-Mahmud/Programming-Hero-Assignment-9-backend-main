@@ -27,16 +27,32 @@ const verifyJwtToken = async (token) => {
 };
 
 // Middleware
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  process.env.CLIENT_URL?.replace(/\/$/, ""),
+  "http://localhost:3000",
+  "http://localhost:3001",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: [
-      process.env.CLIENT_URL || "http://localhost:3000",
-      "http://localhost:3000",
-      "http://localhost:3001",
-    ],
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        origin.includes("localhost")
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   })
 );
+app.options("*", cors());
 app.use(express.json());
 app.use(cookieParser());
 
@@ -50,13 +66,13 @@ const client = new MongoClient(url, {
 
 // Authentication Middleware with JWT verification (jose-cjs) and Session fallback
 const authMiddleware = async (req, res, next) => {
-  // 1. Check for JWT token in Cookies or Bearer Authorization header
+  // 1. Check Bearer Authorization header FIRST (required for cross-origin Vercel deployments)
   const token =
-    req.cookies?.token ||
-    req.cookies?.jwt_token ||
     (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")
       ? req.headers.authorization.split(" ")[1]
-      : null);
+      : null) ||
+    req.cookies?.token ||
+    req.cookies?.jwt_token;
 
   if (token) {
     try {
