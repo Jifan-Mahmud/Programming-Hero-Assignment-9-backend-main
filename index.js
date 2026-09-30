@@ -141,6 +141,42 @@ async function run() {
         res.status(500).json({ message: "Failed to add study room" });
       }
     });
+
+     // Create a new room (Owner)
+    app.post("/api/rooms", authMiddleware, async (req, res) => {
+      try {
+        const { name, description, image, floor, capacity, hourlyRate, amenities } = req.body;
+
+        if (!name || !description || !image || !floor || !capacity || !hourlyRate) {
+          return res.status(400).json({ message: "Please fill in all required room fields." });
+        }
+
+        const newRoom = {
+          name,
+          description,
+          image,
+          floor: String(floor),
+          capacity: Number(capacity),
+          hourlyRate: Number(hourlyRate),
+          amenities: Array.isArray(amenities) ? amenities : [],
+          ownerId: req.user.id,
+          ownerName: req.user.name,
+          ownerEmail: req.user.email,
+          bookingCount: 0,
+          createdAt: new Date(),
+        };
+
+        const result = await roomsCollection.insertOne(newRoom);
+        res.status(201).json({
+          success: true,
+          message: "Room added successfully",
+          room: { _id: result.insertedId, ...newRoom },
+        });
+      } catch (error) {
+        console.error("Add Room Error:", error);
+        res.status(500).json({ message: "Failed to add study room" });
+      }
+    });
     
 
     app.get("/", (req, res) => {
