@@ -177,6 +177,43 @@ async function run() {
         res.status(500).json({ message: "Failed to add study room" });
       }
     });
+     // Delete room (Owner only check & $pull from user bookings)
+        app.delete("/api/rooms/:id", authMiddleware, async (req, res) => {
+          try {
+            const { id } = req.params;
+            if (!ObjectId.isValid(id)) {
+              return res.status(400).json({ message: "Invalid Room ID" });
+            }
+    
+            const room = await roomsCollection.findOne({ _id: new ObjectId(id) });
+            if (!room) {
+              return res.status(404).json({ message: "Room not found" });
+            }
+    
+            if (room.ownerId !== req.user.id) {
+              return res.status(403).json({ message: "Forbidden: You can only delete your own rooms." });
+            }
+    
+            // Find related bookings
+            const relatedBookings = await bookingsCollection
+              .find({ roomId: new ObjectId(id) })
+              .toArray();
+            const bookingIds = relatedBookings.map((b) => b._id);
+    
+            // Delete related bookings
+            if (bookingIds.length > 0) {
+              await bookingsCollection.deleteMany({ roomId: new ObjectId(id) });
+            }
+    
+            // Delete room document
+            await roomsCollection.deleteOne({ _id: new ObjectId(id) });
+    
+            res.json({ success: true, message: "Room deleted successfully" });
+          } catch (error) {
+            console.error("Delete Room Error:", error);
+            res.status(500).json({ message: "Failed to delete room" });
+          }
+        });
     
 
     app.get("/", (req, res) => {
